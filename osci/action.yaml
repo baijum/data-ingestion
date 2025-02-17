@@ -23,9 +23,6 @@ inputs:
     description: 'Delay between polling attempts (in seconds).'
     required: false
     default: '10'
-outputs:
-  final_state:
-    description: 'The final state (e.g. "success", "failure") of the desired status context.'
 runs:
   using: "composite"
   steps:
@@ -72,4 +69,4 @@ runs:
         echo "final_state=$FINAL_STATE" >> $GITHUB_OUTPUT
 outputs:
   final_state:
-    description: "The final state of the desired status context."
+    description: 'The final state (e.g. "success", "failure") of the desired status context.'
