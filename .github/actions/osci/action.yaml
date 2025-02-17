@@ -1,0 +1,75 @@
+name: 'Wait for External Status'
+description: 'Polls the GitHub API for a specific commit status context until it is no longer pending.'
+inputs:
+  desired_context:
+    description: 'The status context (name) to wait for (e.g. "ci/prow/e2e").'
+    required: true
+  commit_sha:
+    description: 'The commit SHA to check statuses for. Defaults to the triggering commit.'
+    required: false
+    default: '${{ github.sha }}'
+  repository:
+    description: 'The repository in "owner/repo" format. Defaults to the current repository.'
+    required: false
+    default: '${{ github.repository }}'
+  token:
+    description: 'A GitHub token with permission to read commit statuses.'
+    required: true
+  max_retries:
+    description: 'Maximum number of polling attempts.'
+    required: false
+    default: '30'
+  retry_delay:
+    description: 'Delay between polling attempts (in seconds).'
+    required: false
+    default: '10'
+outputs:
+  final_state:
+    description: 'The final state (e.g. "success", "failure") of the desired status context.'
+runs:
+  using: "composite"
+  steps:
+    - name: Poll for status
+      shell: bash
+      run: |
+        set -e
+
+        DESIRED_CONTEXT="${{ inputs.desired_context }}"
+        COMMIT_SHA="${{ inputs.commit_sha }}"
+        REPO="${{ inputs.repository }}"
+        TOKEN="${{ inputs.token }}"
+        MAX_RETRIES=${{ inputs.max_retries }}
+        RETRY_DELAY=${{ inputs.retry_delay }}
+
+        echo "Checking statuses for commit $COMMIT_SHA in $REPO for context '$DESIRED_CONTEXT'..."
+
+        i=0
+        statusFound=false
+        FINAL_STATE=""
+        while [ $i -lt $MAX_RETRIES ]; do
+          echo "Attempt $((i+1))/$MAX_RETRIES..."
+          RESPONSE=$(curl -s -H "Accept: application/vnd.github.v3+json" \
+                    -H "Authorization: token $TOKEN" \
+                    "https://api.github.com/repos/$REPO/commits/$COMMIT_SHA/statuses")
+          FINAL_STATE=$(echo "$RESPONSE" | jq -r --arg context "$DESIRED_CONTEXT" '.[] | select(.context==$context) | .state' )
+          if [ -n "$FINAL_STATE" ] && [ "$FINAL_STATE" != "pending" ]; then
+            echo "Found status context '$DESIRED_CONTEXT' with state: $FINAL_STATE"
+            statusFound=true
+            break
+          else
+            echo "Status context '$DESIRED_CONTEXT' not found or still pending. Waiting..."
+          fi
+          i=$((i+1))
+          sleep $RETRY_DELAY
+        done
+
+        if [ "$statusFound" = false ]; then
+          echo "Timeout waiting for status context '$DESIRED_CONTEXT'"
+          exit 1
+        fi
+
+        # Set the output value
+        echo "final_state=$FINAL_STATE" >> $GITHUB_OUTPUT
+outputs:
+  final_state:
+    description: "The final state of the desired status context."
