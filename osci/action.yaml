@@ -47,7 +47,7 @@ runs:
           echo "Attempt $((i+1))/$MAX_RETRIES..."
           RESPONSE=$(curl -s -H "Accept: application/vnd.github.v3+json" \
                     -H "Authorization: token $TOKEN" \
-                    "https://api.github.com/repos/$REPO/commits/$COMMIT_SHA/statuses")
+                    "https://api.github.com/repos/$REPO/commits/$COMMIT_SHA/status")
           FINAL_STATE=$(echo "$RESPONSE" | jq -r --arg context "$DESIRED_CONTEXT" '.[] | select(.context==$context) | .state' )
           if [ -n "$FINAL_STATE" ] && [ "$FINAL_STATE" != "pending" ]; then
             echo "Found status context '$DESIRED_CONTEXT' with state: $FINAL_STATE"
