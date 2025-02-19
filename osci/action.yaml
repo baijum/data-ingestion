@@ -48,7 +48,8 @@ runs:
           RESPONSE=$(curl -s -H "Accept: application/vnd.github.v3+json" \
                     -H "Authorization: token $TOKEN" \
                     "https://api.github.com/repos/$REPO/commits/$COMMIT_SHA/status")
-          FINAL_STATE=$(echo "$RESPONSE" | jq -r --arg context "$DESIRED_CONTEXT" '.[] | select(.context==$context) | .state' )
+          #FINAL_STATE=$(echo "$RESPONSE" | jq -r --arg context "$DESIRED_CONTEXT" '.[] | select(.context==$context) | .state' )
+          FINAL_STATE=$(echo "$COMBINED" | jq -r --arg context "$DESIRED_CONTEXT" '.combined | map(select(.context == $context)) | .[0].state // ""' )
           if [ -n "$FINAL_STATE" ] && [ "$FINAL_STATE" != "pending" ]; then
             echo "Found status context '$DESIRED_CONTEXT' with state: $FINAL_STATE"
             statusFound=true
