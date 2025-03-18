@@ -1,0 +1,40 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: data-ingestion
+  labels:
+    app: data-ingestion
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: data-ingestion
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: data-ingestion
+        deployment: data-ingestion
+    spec:
+      containers:
+        - name: data-ingestion
+          image: 'image-registry.openshift-image-registry.svc:5000/bmuthuka-dev/data-ingestion:latest'
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          imagePullPolicy: Always
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      securityContext: {}
+      schedulerName: default-scheduler
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600

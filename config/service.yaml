@@ -1,0 +1,22 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: dprod-data-ingestion
+  labels:
+    sandbox: serverless
+    sandbox-serverless: overlay
+
+spec:
+  template:
+    spec:
+      containers:
+        - image: quay.io/developerproductivity/data-ingestion:latest
+          ports:
+            - containerPort: 5002
+              protocol: TCP
+          env:
+          - name: GITHUB_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: githubsecret
+                key: personalAccessToken
