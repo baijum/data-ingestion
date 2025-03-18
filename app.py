@@ -5,10 +5,12 @@ import hmac
 import hashlib
 import json
 import os
+import requests
 
 app = Flask(__name__)
 
 GITHUB_SECRET = os.getenv('GITHUB_SECRET')
+LOGILICA_TOKEN = os.getenv('LOGILICA_TOKEN')
 CHECK_RUN_NAME = 'codecov/patch'
 
 
@@ -20,7 +22,6 @@ def download_directory_from_gcs(bucket_name, source_prefix, destination_director
         source_prefix: The GCS prefix (directory) to download.
         destination_directory: The local directory to download the files to.
     """
-
     storage_client = storage.Client.create_anonymous_client()
     bucket = storage_client.bucket(bucket_name)
     blobs = bucket.list_blobs(prefix=source_prefix)  # Get list of files in the directory
@@ -88,10 +89,60 @@ def github_webhook():
             source_prefix = details_url.split("/gs/")[-1]
             destination_directory = details_url.split("/")[-1]
             download_directory_from_gcs(bucket_name, source_prefix, destination_directory)
+            upload_ci_build_data()
 
     # Respond with a 204 No Content status code once processing is complete
     return '', 204
 
+# Based on https://docs.logilica.com/advanced/import/build-data
+def upload_ci_build_data():
+    repo_id = "236c4920195fae69201237f4aa076e5fc771ceef"
+    url = f"https://logilica.io/api/import/v1/ci_build/{repo_id}/create"
+    logilica_token = LOGILICA_TOKEN
+    logilica_domain = "redhat"
+    payload= [{"origin": "text",
+               "originalID": "text",
+               "name": "text-baiju",
+               "url": "https://example.com",
+               "startedAt": 1,
+               "createdAt": 1,
+               "completedAt": 1,
+               "triggeredBy": {"name": "text",
+                               "email": "hello@example.com",
+                               "accountId": "text",
+                               "lastActivity": 1},
+               "status": "text",
+               "conclusion": "text",
+               "repoUrl": "https://example.com",
+               "commit": "text",
+               "pullRequestUrls": ["text"],
+               "isDeployment": True,
+               "stages":[{"name": "text",
+                          "id": "text",
+                          "url": "https://example.com",
+                          "startedAt": 1,
+                          "completedAt": 1,
+                          "status": "text",
+                          "conclusion": "text",
+                          "jobs": [{"name": "text",
+                                    "startedAt": 1,
+                                    "completedAt": 1,
+                                    "status": "text",
+                                    "conclusion": "text"}]}]
+            }]
+
+    headers={"Content-Type": "application/json",
+                 "X-lgca-token": logilica_token,
+                 "x-lgca-domain": logilica_domain}
+    response = requests.post(
+            url,
+            headers=headers,
+            json=payload,
+    )
+    print("AAAAAAA", response.text)
+
+
 if __name__ == '__main__':
     # Run the Flask app
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    #app.run(debug=True, host='0.0.0.0', port=5001)
+    upload_ci_build_data()
