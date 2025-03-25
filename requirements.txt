@@ -2,3 +2,4 @@ Flask
 pytest
 flake8
 google-cloud-storage
+requests
