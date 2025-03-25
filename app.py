@@ -11,31 +11,20 @@ app = Flask(__name__)
 
 GITHUB_SECRET = os.getenv('GITHUB_SECRET')
 LOGILICA_TOKEN = os.getenv('LOGILICA_TOKEN')
-CHECK_RUN_NAME = 'codecov/patch'
 
 
-def download_directory_from_gcs(bucket_name, source_prefix, destination_directory):
-    """Downloads a directory from Google Cloud Storage.
+def download_single_file_from_gcs(bucket_name: str, source_blob_name: str) -> bytes:
+    """Downloads a file from Google Cloud Storage.
 
     Args:
         bucket_name: The name of the GCS bucket.
-        source_prefix: The GCS prefix (directory) to download.
-        destination_directory: The local directory to download the files to.
+        source_blob_name: The GCS blob to download.
     """
     storage_client = storage.Client.create_anonymous_client()
     bucket = storage_client.bucket(bucket_name)
-    blobs = bucket.list_blobs(prefix=source_prefix)  # Get list of files in the directory
+    blob = bucket.blob(source_blob_name)
 
-    os.makedirs(destination_directory, exist_ok=True)  # Create destination directory if it doesn't exist
-
-    for blob in blobs:
-        if blob.name.endswith('/'): #skip directories
-            continue
-        relative_path = os.path.relpath(blob.name, source_prefix)
-        destination_file_path = os.path.join(destination_directory, relative_path)
-        os.makedirs(os.path.dirname(destination_file_path), exist_ok=True) #create subdirectories
-        blob.download_to_filename(destination_file_path)
-        print(f"Downloaded {blob.name} to {destination_file_path}")
+    return blob.download_as_bytes()
 
 def verify_signature(payload, header_signature):
     """
@@ -79,56 +68,60 @@ def github_webhook():
     if event == 'ping':
         return json.dumps({'msg': 'Pong!'}), 200
 
-    if event == 'check_run':
-        check_run_name = payload['check_run']['name']
-        if check_run_name == CHECK_RUN_NAME:
-            details_url = payload['check_run']['details_url']
-            print(f"Downloading logs from {details_url}")
-            details_url = "https://prow.ci.openshift.org/view/gs/test-platform-results/pr-logs/pull/codeready-toolchain_host-operator/1145/pull-ci-codeready-toolchain-host-operator-master-e2e/1891795860363153408" 
+    if event == 'status':
+        context = payload['context']
+        if context == "ci/prow/e2e":
+            target_url = payload['target_url']
+            print(f"Downloading logs from {target_url}")
             bucket_name = "test-platform-results"
-            source_prefix = details_url.split("/gs/")[-1]
-            destination_directory = details_url.split("/")[-1]
-            download_directory_from_gcs(bucket_name, source_prefix, destination_directory)
-            upload_ci_build_data()
+            source_prefix = target_url.split("/gs/")[-1]
+            new_source_prefix = source_prefix.split("/",1)[1]
+            finished_json = json.loads(download_single_file_from_gcs(bucket_name, new_source_prefix+"/finished.json").decode("utf-8"))
+            started_json = json.loads(download_single_file_from_gcs(bucket_name, new_source_prefix+"/started.json").decode("utf-8"))
+            upload_ci_build_data(target_url, finished_json, started_json)
 
     # Respond with a 204 No Content status code once processing is complete
     return '', 204
 
 # Based on https://docs.logilica.com/advanced/import/build-data
-def upload_ci_build_data():
+def upload_ci_build_data(details_url: str, finished_json: dict, started_json: dict):
     repo_id = "236c4920195fae69201237f4aa076e5fc771ceef"
     url = f"https://logilica.io/api/import/v1/ci_build/{repo_id}/create"
     logilica_token = LOGILICA_TOKEN
     logilica_domain = "redhat"
-    payload= [{"origin": "text",
-               "originalID": "text",
-               "name": "text-baiju",
-               "url": "https://example.com",
-               "startedAt": 1,
-               "createdAt": 1,
-               "completedAt": 1,
+
+    details = details_url.split("/pull/")[1]
+    original_id = details.split("/")[3]
+    name_of_payload = details.split("/")[2]
+    payload= [{"origin": "OpenShift CI",
+               "originalID": original_id,
+               "name": name_of_payload,
+               "url": details_url,
+               "startedAt": started_json["timestamp"],
+               "createdAt": started_json["timestamp"],
+               "completedAt": finished_json["timestamp"],
                "triggeredBy": {"name": "text",
                                "email": "hello@example.com",
                                "accountId": "text",
                                "lastActivity": 1},
-               "status": "text",
-               "conclusion": "text",
+               "status": "Completed",
+               "conclusion": finished_json["result"],
                "repoUrl": "https://example.com",
                "commit": "text",
                "pullRequestUrls": ["text"],
                "isDeployment": True,
-               "stages":[{"name": "text",
-                          "id": "text",
+               "stages":[{"name": name_of_payload,
+                          "id": original_id,
                           "url": "https://example.com",
-                          "startedAt": 1,
-                          "completedAt": 1,
-                          "status": "text",
-                          "conclusion": "text",
-                          "jobs": [{"name": "text",
-                                    "startedAt": 1,
-                                    "completedAt": 1,
-                                    "status": "text",
-                                    "conclusion": "text"}]}]
+                          "startedAt": started_json["timestamp"],
+                          "completedAt": finished_json["timestamp"],
+                          "status": "Completed",
+                          "conclusion": finished_json["result"],
+                          "jobs": [{"name": name_of_payload,
+                                    "startedAt": started_json["timestamp"],
+                                    "completedAt": finished_json["timestamp"],
+                                    "status": "Completed",
+                                    "conclusion": finished_json["result"]}]}]
             }]
 
     headers={"Content-Type": "application/json",
@@ -139,10 +132,10 @@ def upload_ci_build_data():
             headers=headers,
             json=payload,
     )
-    print("AAAAAAA", response.text)
+    print("Response", response.text)
 
 
 if __name__ == '__main__':
     # Run the Flask app
-    #app.run(debug=True, host='0.0.0.0', port=5001)
-    upload_ci_build_data()
+    app.run(debug=True, host='0.0.0.0', port=5001)
+    #upload_ci_build_data()

@@ -18,5 +18,10 @@ spec:
           - name: GITHUB_SECRET
             valueFrom:
               secretKeyRef:
-                name: githubsecret
-                key: personalAccessToken
+                name: app-secret
+                key: gitHubToken
+          - name: LOGILICA_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: app-secret
+                key: logilicaToken
