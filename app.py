@@ -85,11 +85,20 @@ def github_webhook():
 
 # Based on https://docs.logilica.com/advanced/import/build-data
 def upload_ci_build_data(details_url: str, finished_json: dict, started_json: dict):
-    repo_id = "236c4920195fae69201237f4aa076e5fc771ceef"
-    url = f"https://logilica.io/api/import/v1/ci_build/{repo_id}/create"
     logilica_token = LOGILICA_TOKEN
     logilica_domain = "redhat"
-
+    headers={"Content-Type": "application/json",
+            "X-lgca-token": logilica_token,
+            "x-lgca-domain": logilica_domain}
+    response = requests.get("https://logilica.io/api/import/v1/repositories", headers=headers)
+    
+    repo_id = ""
+    data = response.json()
+    for repo in data:
+        if repo["name"] == finished_json['metadata']['repo']:
+            repo_id = repo["id"]
+            break
+    url = f"https://logilica.io/api/import/v1/ci_build/{repo_id}/create"
     details = details_url.split("/pull/")[1]
     original_id = details.split("/")[3]
     name_of_payload = details.split("/")[2]
@@ -123,10 +132,6 @@ def upload_ci_build_data(details_url: str, finished_json: dict, started_json: di
                                     "status": "Completed",
                                     "conclusion": finished_json["result"]}]}]
             }]
-
-    headers={"Content-Type": "application/json",
-                 "X-lgca-token": logilica_token,
-                 "x-lgca-domain": logilica_domain}
     response = requests.post(
             url,
             headers=headers,

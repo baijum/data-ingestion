@@ -1,5 +1,4 @@
 FROM --platform=linux/amd64 docker.io/library/python:3.12-slim AS builder
-
 #FROM --platform=linux/arm64 docker.io/library/python:3.12-slim AS builder
 
 
@@ -18,33 +17,32 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Poetry for dependency management
-RUN pip install --no-cache-dir "poetry==$POETRY_VERSION"
 
+RUN pip install --no-cache-dir "poetry==$POETRY_VERSION"
 # Copy only dependency files to leverage Docker caching
-COPY pyproject.toml poetry.lock ./
-#RUN poetry config virtualenvs.create false
+COPY pyproject.toml ./
 RUN poetry config virtualenvs.in-project true
 RUN poetry config virtualenvs.create true
-RUN poetry install
-#--no-root
+RUN poetry install --no-root --no-directory
+
 
 # Copy application code
 COPY . .
 
 # --- Serve Stage ---
-FROM python:3.12-slim AS runtime
+FROM --platform=linux/amd64 python:3.12-slim AS runtime
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
-        APP_HOME=/app \
-        POETRY_VIRTUALENVS_CREATE=false
-    
+            APP_HOME=/app \
+            POETRY_VIRTUALENVS_CREATE=false
+        
 # Create and set working directory
 WORKDIR $APP_HOME
-    
+        
 # Copy installed dependencies from builder stage
 COPY --from=builder $APP_HOME $APP_HOME
-    
+        
 # Expose the application port
 EXPOSE 5002
 

@@ -1,9 +1,19 @@
 [project]
 authors = [{name = "Baiju Muthukadan", email = "baiju.m.mail@gmail.com"}]
-dependencies = []
 name = "pixi-py"
-requires-python = ">= 3.12,<3.13"
+requires-python = ">=3.12,<3.13"
 version = "0.1.0"
+dependencies = [
+    "hatch>=1.14.0,<2",
+    "black>=25.1.0,<26",
+    "flask>=3.1.0,<4",
+    "pytest>=8.3.5,<9",
+    "flake8>=7.1.2,<8",
+    "google-cloud-storage>=3.1.0,<4",
+    "requests>=2.32.3,<3",
+    "gunicorn>=23.0.0,<24",
+    "uvicorn>=0.34.0,<0.35",
+    ]
 
 [build-system]
 build-backend = "hatchling.build"
@@ -16,15 +26,24 @@ platforms = ["osx-arm64"]
 [tool.pixi.pypi-dependencies]
 pixi_py = { path = ".", editable = true }
 
-[tool.pixi.tasks]
+[tool.hatch.build.targets.wheel]
+packages = ["."]
 
-[tool.pixi.dependencies]
+[tool.poetry]
+version = "1.0"  # base version
+name = "pixi-py"
+description = "A Python package"
+authors = ["Baiju Muthukadan"]
+
+[tool.poetry.dependencies]
+python = "^3.12,<3.13"
+hatch = ">=1.14.0,<2"
 black = ">=25.1.0,<26"
 flask = ">=3.1.0,<4"
 pytest = ">=8.3.5,<9"
 flake8 = ">=7.1.2,<8"
 google-cloud-storage = ">=3.1.0,<4"
 requests = ">=2.32.3,<3"
+gunicorn = ">=23.0.0,<24"
+uvicorn = ">=0.34.0,<0.35"
 
-[tool.hatch.build.targets.wheel]
-packages = ["."]
