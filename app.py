@@ -1,4 +1,3 @@
-
 from google.cloud import storage
 from flask import Flask, request, abort
 import hmac
@@ -20,11 +19,14 @@ def download_single_file_from_gcs(bucket_name: str, source_blob_name: str) -> by
         bucket_name: The name of the GCS bucket.
         source_blob_name: The GCS blob to download.
     """
-    storage_client = storage.Client.create_anonymous_client()
-    bucket = storage_client.bucket(bucket_name)
-    blob = bucket.blob(source_blob_name)
-
-    return blob.download_as_bytes()
+    try:
+        storage_client = storage.Client.create_anonymous_client()
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(source_blob_name)
+        return blob.download_as_bytes()
+    except Exception as e:
+        print(f"Error downloading from GCS: {str(e)}")
+        raise
 
 def verify_signature(payload, header_signature):
     """
@@ -85,62 +87,88 @@ def github_webhook():
 
 # Based on https://docs.logilica.com/advanced/import/build-data
 def upload_ci_build_data(details_url: str, finished_json: dict, started_json: dict):
-    logilica_token = LOGILICA_TOKEN
-    logilica_domain = "redhat"
-    headers={"Content-Type": "application/json",
+    try:
+        logilica_token = LOGILICA_TOKEN
+        if not logilica_token:
+            raise ValueError("LOGILICA_TOKEN environment variable is not set")
+            
+        logilica_domain = "redhat"
+        headers = {
+            "Content-Type": "application/json",
             "X-lgca-token": logilica_token,
-            "x-lgca-domain": logilica_domain}
-    response = requests.get("https://logilica.io/api/import/v1/repositories", headers=headers)
-    
-    repo_id = ""
-    data = response.json()
-    for repo in data:
-        if repo["name"] == finished_json['metadata']['repo']:
-            repo_id = repo["id"]
-            break
-    url = f"https://logilica.io/api/import/v1/ci_build/{repo_id}/create"
-    details = details_url.split("/pull/")[1]
-    original_id = details.split("/")[3]
-    name_of_payload = details.split("/")[2]
-    payload= [{"origin": "OpenShift CI",
-               "originalID": original_id,
-               "name": name_of_payload,
-               "url": details_url,
-               "startedAt": started_json["timestamp"],
-               "createdAt": started_json["timestamp"],
-               "completedAt": finished_json["timestamp"],
-               "triggeredBy": {"name": "text",
-                               "email": "hello@example.com",
-                               "accountId": "text",
-                               "lastActivity": 1},
-               "status": "Completed",
-               "conclusion": finished_json["result"],
-               "repoUrl": "https://example.com",
-               "commit": "text",
-               "pullRequestUrls": ["text"],
-               "isDeployment": True,
-               "stages":[{"name": name_of_payload,
-                          "id": original_id,
-                          "url": "https://example.com",
-                          "startedAt": started_json["timestamp"],
-                          "completedAt": finished_json["timestamp"],
-                          "status": "Completed",
-                          "conclusion": finished_json["result"],
-                          "jobs": [{"name": name_of_payload,
-                                    "startedAt": started_json["timestamp"],
-                                    "completedAt": finished_json["timestamp"],
-                                    "status": "Completed",
-                                    "conclusion": finished_json["result"]}]}]
+            "x-lgca-domain": logilica_domain
+        }
+        
+        # Get repository ID
+        response = requests.get("https://logilica.io/api/import/v1/repositories", headers=headers)
+        response.raise_for_status()
+        
+        repo_id = ""
+        data = response.json()
+        for repo in data:
+            if repo["name"] == finished_json['metadata']['repo']:
+                repo_id = repo["id"]
+                break
+                
+        if not repo_id:
+            raise ValueError(f"Repository {finished_json['metadata']['repo']} not found in Logilica")
+            
+        url = f"https://logilica.io/api/import/v1/ci_build/{repo_id}/create"
+        details = details_url.split("/pull/")[1]
+        original_id = details.split("/")[3]
+        name_of_payload = details.split("/")[2]
+        name_of_payload = "OpenShift CI " + name_of_payload.split("-")[-1]
+        
+        # Construct payload with actual data from the CI build
+        payload = [{
+            "origin": "OpenShift_CI",
+            "originalID": original_id,
+            "name": name_of_payload,
+            "url": details_url,
+            "startedAt": started_json["timestamp"],
+            "createdAt": started_json["timestamp"],
+            "completedAt": finished_json["timestamp"],
+            "triggeredBy": {
+                "name": started_json.get("metadata", {}).get("author", "Unknown"),
+                "email": started_json.get("metadata", {}).get("author_email", "unknown@example.com"),
+                "accountId": started_json.get("metadata", {}).get("author", "unknown"),
+                "lastActivity": 1
+            },
+            "status": "Completed",
+            "conclusion": finished_json["result"],
+            "repoUrl": finished_json.get("metadata", {}).get("repo_url", "https://github.com/redhat"),
+            "commit": started_json.get("metadata", {}).get("commit", "unknown"),
+            "pullRequestUrls": [details_url],
+            "isDeployment": True,
+            "stages": [{
+                "name": name_of_payload,
+                "id": original_id,
+                "url": details_url,
+                "startedAt": started_json["timestamp"],
+                "completedAt": finished_json["timestamp"],
+                "status": "Completed",
+                "conclusion": finished_json["result"],
+                "jobs": [{
+                    "name": name_of_payload,
+                    "startedAt": started_json["timestamp"],
+                    "completedAt": finished_json["timestamp"],
+                    "status": "Completed",
+                    "conclusion": finished_json["result"]
+                }]
             }]
-    response = requests.post(
-            url,
-            headers=headers,
-            json=payload,
-    )
-    print("Response", response.text)
+        }]
+        
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        print("Successfully uploaded CI build data to Logilica")
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Error making request to Logilica: {str(e)}")
+        raise
+    except Exception as e:
+        print(f"Unexpected error in upload_ci_build_data: {str(e)}")
+        raise
 
 
 if __name__ == '__main__':
-    # Run the Flask app
     app.run(debug=True, host='0.0.0.0', port=5001)
-    #upload_ci_build_data()
