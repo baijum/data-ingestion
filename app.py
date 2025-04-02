@@ -135,7 +135,7 @@ def upload_ci_build_data(details_url: str, finished_json: dict, started_json: di
                 "lastActivity": 1
             },
             "status": "Completed",
-            "conclusion": finished_json["result"],
+            "conclusion": finished_json["result"].capitalize(),
             "repoUrl": finished_json.get("metadata", {}).get("repo_url", "https://github.com/redhat"),
             "commit": started_json.get("metadata", {}).get("commit", "unknown"),
             "pullRequestUrls": [details_url],
@@ -147,13 +147,13 @@ def upload_ci_build_data(details_url: str, finished_json: dict, started_json: di
                 "startedAt": started_json["timestamp"],
                 "completedAt": finished_json["timestamp"],
                 "status": "Completed",
-                "conclusion": finished_json["result"],
+                "conclusion": finished_json["result"].capitalize(),
                 "jobs": [{
                     "name": name_of_payload,
                     "startedAt": started_json["timestamp"],
                     "completedAt": finished_json["timestamp"],
                     "status": "Completed",
-                    "conclusion": finished_json["result"]
+                    "conclusion": finished_json["result"].capitalize()
                 }]
             }]
         }]
