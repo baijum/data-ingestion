@@ -1129,7 +1129,7 @@ packages:
 - pypi: .
   name: pixi-py
   version: 0.1.0
-  sha256: 00079051a588af751c4c9bceb88e9e9ec4b95bfd51112f1f75a9b4954b21e9d5
+  sha256: 6dbe7cc757451f1c4fc194133b4e671bf351518c098fa478523d159952ed8af1
   requires_dist:
   - hatch>=1.14.0,<2
   - black>=25.1.0,<26
