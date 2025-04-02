@@ -73,6 +73,9 @@ def github_webhook():
     if event == 'status':
         context = payload['context']
         if context == "ci/prow/e2e":
+            triggered_name = payload['commit']['commit']['author']['name']
+            triggered_email = payload['commit']['commit']['author']['email']
+            triggered_id =  payload['commit']['author']['login']
             target_url = payload['target_url']
             print(f"Downloading logs from {target_url}")
             bucket_name = "test-platform-results"
@@ -80,13 +83,14 @@ def github_webhook():
             new_source_prefix = source_prefix.split("/",1)[1]
             finished_json = json.loads(download_single_file_from_gcs(bucket_name, new_source_prefix+"/finished.json").decode("utf-8"))
             started_json = json.loads(download_single_file_from_gcs(bucket_name, new_source_prefix+"/started.json").decode("utf-8"))
-            upload_ci_build_data(target_url, finished_json, started_json)
+
+            upload_ci_build_data(target_url, finished_json, started_json, triggered_name, triggered_email, triggered_id)
 
     # Respond with a 204 No Content status code once processing is complete
     return '', 204
 
 # Based on https://docs.logilica.com/advanced/import/build-data
-def upload_ci_build_data(details_url: str, finished_json: dict, started_json: dict):
+def upload_ci_build_data(details_url: str, finished_json: dict, started_json: dict, triggered_name: str, triggered_email: str, triggered_id: str):
     try:
         logilica_token = LOGILICA_TOKEN
         if not logilica_token:
@@ -129,9 +133,9 @@ def upload_ci_build_data(details_url: str, finished_json: dict, started_json: di
             "createdAt": started_json["timestamp"],
             "completedAt": finished_json["timestamp"],
             "triggeredBy": {
-                "name": started_json.get("metadata", {}).get("author", "Unknown"),
-                "email": started_json.get("metadata", {}).get("author_email", "unknown@example.com"),
-                "accountId": started_json.get("metadata", {}).get("author", "unknown"),
+                "name": triggered_name,
+                "email": triggered_email,
+                "accountId": triggered_id,
                 "lastActivity": 1
             },
             "status": "Completed",
