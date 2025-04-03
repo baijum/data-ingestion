@@ -72,7 +72,7 @@ def github_webhook():
 
     if event == 'status':
         context = payload['context']
-        if context == "ci/prow/e2e" and payload['state'] == "success":
+        if context == "ci/prow/e2e" and payload['state'] in ("success", "failure"):
             triggered_name = payload['commit']['commit']['author']['name']
             triggered_email = payload['commit']['commit']['author']['email']
             triggered_id =  payload['commit']['author']['login']
