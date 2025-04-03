@@ -141,7 +141,7 @@ def upload_ci_build_data(details_url: str, finished_json: dict, started_json: di
             "status": "Completed",
             "conclusion": finished_json["result"].capitalize(),
             "repoUrl": "https://github.com/"+finished_json.get("metadata", {}).get("repo", "unknown"),
-            "commit": finished_json.get("metadata", {}).get("commit", "unknown"),
+            "commit": started_json.get("repo-commit", "unknown"),
             "pullRequestUrls": [details_url],
             "isDeployment": True,
             "stages": [{
