@@ -1,1 +1,6 @@
 # osci-data-ingestion
+
+10b0395a76b40dfa7cf765db86f255fc8c5efc79
+
+
+8573957b502d7b7edac984a7745e885211b9aea0
