@@ -1,27 +1,14 @@
-apiVersion: serving.knative.dev/v1
+apiVersion: v1
 kind: Service
 metadata:
-  name: dprod-data-ingestion
+  name: data-ingestion
   labels:
-    sandbox: serverless
-    sandbox-serverless: overlay
-
+    app: data-ingestion
 spec:
-  template:
-    spec:
-      containers:
-        - image: quay.io/developerproductivity/data-ingestion:latest
-          ports:
-            - containerPort: 5002
-              protocol: TCP
-          env:
-          - name: GITHUB_SECRET
-            valueFrom:
-              secretKeyRef:
-                name: app-secret
-                key: gitHubToken
-          - name: LOGILICA_TOKEN
-            valueFrom:
-              secretKeyRef:
-                name: app-secret
-                key: logilicaToken
+  selector:
+    app: data-ingestion
+  ports:
+    - port: 80
+      targetPort: 5002
+      protocol: TCP
+  type: ClusterIP 

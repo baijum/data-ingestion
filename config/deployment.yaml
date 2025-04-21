@@ -20,8 +20,19 @@ spec:
         - name: data-ingestion
           image: 'image-registry.openshift-image-registry.svc:5000/bmuthuka-dev/data-ingestion:latest'
           ports:
-            - containerPort: 8080
+            - containerPort: 5002
               protocol: TCP
+          env:
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: gitHubToken
+            - name: LOGILICA_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: logilicaToken
           resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
