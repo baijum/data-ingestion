@@ -1,10 +1,11 @@
 from google.cloud import storage
-from flask import Flask, request, abort
+from flask import Flask, request, abort, jsonify, make_response
 import hmac
 import hashlib
 import json
 import os
 import requests
+import time
 
 app = Flask(__name__)
 
@@ -49,27 +50,32 @@ def verify_signature(payload, header_signature):
 
 @app.route('/webhook', methods=['POST'])
 def github_webhook():
-    # Retrieve signature from headers
+    # Get the GitHub event type from the headers
+    event = request.headers.get('X-GitHub-Event', 'ping')
+
+    # Handle the 'ping' event for initial webhook setup *immediately*
+    if event == 'ping':
+        print("Received ping event, responding Pong!")
+        # Using make_response to have more control over the response
+        response = make_response(jsonify({'msg': 'Pong!'}))
+        response.status_code = 200
+        response.content_type = 'application/json'
+        return response
+
+    # If not a ping event, proceed with signature validation
     header_signature = request.headers.get('X-Hub-Signature')
     if header_signature is None:
         abort(400, 'Signature missing')
 
-    # Validate the request payload signature
     if not verify_signature(request.data, header_signature):
         abort(400, 'Invalid signature')
 
-    # Get the GitHub event type from the headers
-    event = request.headers.get('X-GitHub-Event', 'ping')
-
-    # Parse the JSON payload
+    # Signature validated, parse payload for other events
     payload = request.get_json()
     print("Received event:", event)
     print("Payload:", json.dumps(payload, indent=2))
 
-    # Handle the 'ping' event for initial webhook setup
-    if event == 'ping':
-        return json.dumps({'msg': 'Pong!'}), 200
-
+    # Process other events (like 'status')
     if event == 'status':
         context = payload['context']
         if context == "ci/prow/e2e" and payload['state'] in ("success", "failure"):
@@ -84,7 +90,22 @@ def github_webhook():
             finished_json = json.loads(download_single_file_from_gcs(bucket_name, new_source_prefix+"/finished.json").decode("utf-8"))
             started_json = json.loads(download_single_file_from_gcs(bucket_name, new_source_prefix+"/started.json").decode("utf-8"))
 
-            upload_ci_build_data(target_url, finished_json, started_json, triggered_name, triggered_email, triggered_id)
+            max_retries = 7
+            retry_delay = 5  # seconds
+            for attempt in range(max_retries):
+                try:
+                    upload_ci_build_data(target_url, finished_json, started_json, triggered_name, triggered_email, triggered_id)
+                    print(f"Attempt {attempt + 1}/{max_retries}: Upload successful.")
+                    break # Exit loop if upload successful
+                except (requests.exceptions.RequestException, ValueError, Exception) as e:
+                    print(f"Attempt {attempt + 1}/{max_retries} failed: {str(e)}")
+                    if attempt < max_retries - 1:
+                        print(f"Retrying in {retry_delay} seconds...")
+                        time.sleep(retry_delay)
+                    else:
+                        print("All retry attempts failed.")
+                        # Re-raise the last exception to signal failure
+                        raise
 
     # Respond with a 204 No Content status code once processing is complete
     return '', 204
