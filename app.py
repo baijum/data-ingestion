@@ -201,7 +201,7 @@ def github_webhook():
                 # from commit author/committer or a specific API call if not directly available.
                 # For now, using placeholder/derived values.
                 konflux_triggered_name = payload["sender"]["login"]
-                konflux_triggered_email = f"{payload["sender"]["login"]}@users.noreply.github.com"  # Placeholder
+                konflux_triggered_email = f"{payload['sender']['login']}@users.noreply.github.com"  # Placeholder
                 konflux_triggered_id = str(payload["sender"]["id"])
 
                 # Derive original_id and name_of_payload for Konflux CI (check_run event)
@@ -275,7 +275,6 @@ def upload_ci_build_data(
     original_id: str,
     name_of_payload: str,
 ):
-    breakpoint()
     try:
         logilica_token = LOGILICA_TOKEN
         if not logilica_token:
