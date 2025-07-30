@@ -1129,7 +1129,7 @@ packages:
 - pypi: .
   name: pixi-py
   version: 0.1.0
-  sha256: 6dbe7cc757451f1c4fc194133b4e671bf351518c098fa478523d159952ed8af1
+  sha256: 23a1592b595547df4cc5b68923bfb26843863d1c263fc3de34184c880b9ced23
   requires_dist:
   - hatch>=1.14.0,<2
   - black>=25.1.0,<26
@@ -1140,7 +1140,7 @@ packages:
   - requests>=2.32.3,<3
   - gunicorn>=23.0.0,<24
   - uvicorn>=0.34.0,<0.35
-  requires_python: '>=3.12,<3.13'
+  requires_python: '>=3.11,<3.14'
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/noarch/platformdirs-4.3.6-pyhd8ed1ab_1.conda
   sha256: bb50f6499e8bc1d1a26f17716c97984671121608dc0c3ecd34858112bce59a27

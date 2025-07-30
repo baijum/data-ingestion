@@ -1,0 +1,76 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: prow-crawler
+  labels:
+    app: prow-crawler
+spec:
+  # Run nightly at 12:40 AM (00:40)
+  schedule: "40 0 * * *"
+  # Keep last 3 successful and 1 failed job
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  # Allow up to 6 hours for completion
+  startingDeadlineSeconds: 21600
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      # Job should complete within 4 hours
+      activeDeadlineSeconds: 14400
+      template:
+        metadata:
+          labels:
+            app: prow-crawler
+            job: prow-crawler
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: prow-crawler
+              image: 'image-registry.openshift-image-registry.svc:5000/bmuthuka-dev/data-ingestion:latest'
+              command:
+                - "python"
+                - "prow_crawler.py"
+                - "--job-url"
+                - "$(JOB_URL)"
+                - "--limit"
+                - "$(LIMIT)"
+                - "--tracker-dir"
+                - "$(TRACKER_DIR)"
+              env:
+                - name: LOGILICA_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: app-secret
+                      key: logilicaToken
+                - name: JOB_URL
+                  valueFrom:
+                    configMapKeyRef:
+                      name: prow-crawler-config
+                      key: job-url
+                - name: LIMIT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: prow-crawler-config
+                      key: limit
+                - name: TRACKER_DIR
+                  valueFrom:
+                    configMapKeyRef:
+                      name: prow-crawler-config
+                      key: tracker-dir
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+              volumeMounts:
+                - name: tracker-storage
+                  mountPath: /app/tracker
+          volumes:
+            - name: tracker-storage
+              persistentVolumeClaim:
+                claimName: prow-crawler-tracker-pvc
+          terminationGracePeriodSeconds: 30
+          dnsPolicy: ClusterFirst
+          securityContext: {}

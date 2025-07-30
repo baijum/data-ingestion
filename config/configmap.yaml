@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prow-crawler-config
+  labels:
+    app: prow-crawler
+data:
+  # Default job URL - can be overridden via environment variable
+  job-url: "https://prow.ci.openshift.org/job-history/test-platform-results/logs/periodic-ci-codeready-toolchain-toolchain-e2e-master-ci-daily"
+  # Processing limits
+  limit: "100"
+  # Tracker directory
+  tracker-dir: "/app/tracker"
