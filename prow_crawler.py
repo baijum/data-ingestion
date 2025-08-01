@@ -166,7 +166,7 @@ def determine_build_status(finished_json: Dict[str, Any]) -> str:
 def extract_repo_info(finished_json: Dict[str, Any], started_json: Dict[str, Any]) -> Dict[str, str]:
     """Extract repository information from build data."""
     # Try to get repo from finished.json metadata
-    repo_full_name = finished_json.get("metadata", {}).get("repo", "")
+    repo_full_name = list(finished_json['metadata']['repos'].keys())[0] 
     if not repo_full_name:
         # Fallback: try to derive from job data or use a default
         repo_full_name = "openshift/unknown"  # Default fallback
@@ -191,6 +191,7 @@ def get_triggered_info(job_name: str) -> Dict[str, str]:
 
 
 def process_build(
+    job_url: str,
     job_name: str, 
     build_id: str, 
     dry_run: bool = False
@@ -224,6 +225,12 @@ def process_build(
     # Derive name_of_payload similar to app.py logic
     name_of_payload = f"OpenShift CI {job_name.split('-')[-1]}"
     
+    # Construct details_url from job_url and build_id
+    # Convert job-history URL to view URL format
+    # From: https://prow.ci.openshift.org/job-history/test-platform-results/logs/JOB_NAME
+    # To: https://prow.ci.openshift.org/view/gs/test-platform-results/logs/JOB_NAME/BUILD_ID
+    details_url = job_url.replace("/job-history/", "/view/gs/") + f"/{build_id}"
+    
     if dry_run:
         print(f"[DRY RUN] Would upload build {build_id}:")
         print(f"  - Job: {job_name}")
@@ -232,13 +239,13 @@ def process_build(
         print(f"  - Commit: {repo_info['commit_sha']}")
         print(f"  - Started: {datetime.fromtimestamp(started_at_epoch)}")
         print(f"  - Completed: {datetime.fromtimestamp(completed_at_epoch)}")
-        print(f"  - GCS URL: {gcs_url}")
+        print(f"  - Details URL: {details_url}")
         return True
     
     # Upload to Logilica
     try:
         upload_ci_build_data(
-            details_url=gcs_url,
+            details_url=details_url,
             conclusion=conclusion,
             started_at_epoch=started_at_epoch,
             completed_at_epoch=completed_at_epoch,
@@ -314,7 +321,7 @@ def main():
     for i, build_id in enumerate(builds_to_process, 1):
         print(f"\n[{i}/{len(builds_to_process)}] Processing build {build_id}")
         
-        if process_build(job_name, build_id, dry_run):
+        if process_build(job_url, job_name, build_id, dry_run):
             success_count += 1
             if not dry_run:
                 save_processed_build(tracker_file, build_id)

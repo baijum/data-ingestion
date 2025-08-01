@@ -295,6 +295,7 @@ def upload_ci_build_data(
 
         repo_id = ""
         data = response.json()
+
         for repo in data:
             if repo["name"] == repo_full_name:
                 repo_id = repo["id"]
