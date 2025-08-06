@@ -1,0 +1,25 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: prow-crawler
+  labels:
+    app: prow-crawler
+    component: imagestream
+spec:
+  lookupPolicy:
+    local: false
+  tags:
+    - name: latest
+      annotations:
+        openshift.io/display-name: "Prow Crawler (Latest)"
+        description: "Latest version of the Prow Crawler application"
+        iconClass: icon-python
+        tags: "python,crawler,prow,ci"
+        version: "latest"
+      from:
+        kind: DockerImage
+        name: prow-crawler:latest
+      importPolicy:
+        scheduled: false
+      referencePolicy:
+        type: Local

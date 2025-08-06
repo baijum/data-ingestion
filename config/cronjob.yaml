@@ -26,10 +26,8 @@ spec:
           restartPolicy: Never
           containers:
             - name: prow-crawler
-              image: 'image-registry.openshift-image-registry.svc:5000/bmuthuka-dev/data-ingestion:latest'
-              command:
-                - "python"
-                - "prow_crawler.py"
+              image: 'image-registry.openshift-image-registry.svc:5000/bmuthuka-dev/prow-crawler:latest'
+              args:
                 - "--job-url"
                 - "$(JOB_URL)"
                 - "--limit"

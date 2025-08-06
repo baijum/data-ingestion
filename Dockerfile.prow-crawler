@@ -1,0 +1,54 @@
+FROM --platform=linux/amd64 docker.io/library/python:3.12-slim AS builder
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    POETRY_VERSION=1.7.1 \
+    APP_HOME=/app
+
+# Create and set working directory
+WORKDIR $APP_HOME
+
+# Install system dependencies required for building Python packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Poetry for dependency management
+RUN pip install --no-cache-dir "poetry==$POETRY_VERSION"
+
+# Copy only dependency files to leverage Docker caching
+COPY pyproject.toml ./
+
+# Configure Poetry
+RUN poetry config virtualenvs.in-project true
+RUN poetry config virtualenvs.create true
+
+# Install dependencies (without installing the project itself)
+RUN poetry install --no-root --no-directory
+
+# Copy application code
+COPY . .
+
+# --- Runtime Stage ---
+FROM --platform=linux/amd64 python:3.12-slim AS runtime
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    APP_HOME=/app \
+    POETRY_VIRTUALENVS_CREATE=false
+
+# Create and set working directory
+WORKDIR $APP_HOME
+
+# Copy installed dependencies and application code from builder stage
+COPY --from=builder $APP_HOME $APP_HOME
+
+# Create tracker directory with proper permissions
+RUN mkdir -p /app/tracker && chmod 755 /app/tracker
+
+# Set the entrypoint to use the virtual environment's Python
+ENTRYPOINT ["/app/.venv/bin/python", "prow_crawler.py"]
+
+# Default arguments (can be overridden when running the container)
+CMD ["--help"]

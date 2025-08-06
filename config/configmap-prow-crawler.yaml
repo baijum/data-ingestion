@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prow-crawler-config
+  labels:
+    app: prow-crawler
+    component: config
+data:
+  # Prow job history URL to crawl
+  job-url: "https://prow.ci.openshift.org/job-history/test-platform-results/logs/periodic-ci-codeready-toolchain-toolchain-e2e-master-ci-daily"
+  
+  # Maximum number of builds to process in one run
+  limit: "50"
+  
+  # Directory to store tracker files
+  tracker-dir: "/app/tracker"
+  
+  # Additional job URLs (can be used for multiple jobs)
+  # job-url-2: "https://prow.ci.openshift.org/job-history/test-platform-results/logs/another-job"
+  # job-url-3: "https://prow.ci.openshift.org/job-history/test-platform-results/logs/yet-another-job"

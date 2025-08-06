@@ -1,0 +1,43 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: prow-crawler
+  labels:
+    app: prow-crawler
+    component: build
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/your-org/data-ingestion.git
+      ref: main
+    contextDir: .
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile.prow-crawler
+      from:
+        kind: DockerImage
+        name: docker.io/library/python:3.12-slim
+  output:
+    to:
+      kind: ImageStreamTag
+      name: prow-crawler:latest
+  triggers:
+    - type: ConfigChange
+    - type: GitHub
+      github:
+        secret: github-webhook-secret
+    - type: Generic
+      generic:
+        secret: generic-webhook-secret
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  runPolicy: Serial
+  successfulBuildsHistoryLimit: 3
+  failedBuildsHistoryLimit: 2
